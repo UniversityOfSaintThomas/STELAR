@@ -1,1 +1,220 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Credit Hour Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f4f4f4;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        form, .outcome-mapping, .activity-mapping {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input, button, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #result, #outcomeMapping, #activityMapping, #finalReport {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Advanced Credit Hour Calculator</h1>
+        <form id="creditHourForm">
+            <label for="courseName">Course Name:</label>
+            <input type="text" id="courseName" name="courseName" required aria-required="true">
+            <label for="creditHours">Credit Hours:</label>
+            <input type="number" id="creditHours" name="creditHours" min="1" max="5" required aria-required="true">
+            <label for="courseLength">Course Length (weeks):</label>
+            <input type="number" id="courseLength" name="courseLength" min="1" required aria-required="true">
+            <label for="learningOutcomes">Learning Outcomes (one per line):</label>
+            <textarea id="learningOutcomes" name="learningOutcomes" rows="5" required aria-required="true"></textarea>
+            <button type="button" onclick="calculateTime()">Calculate</button>
+        </form>
+        <div id="result" class="hidden" aria-live="polite"></div>
+        <div id="outcomeMapping" class="hidden"></div>
+        <div id="activityMapping" class="hidden"></div>
+        <div id="finalReport" class="hidden"></div>
+    </div>
+    <script>
+        let totalFacultyLedMinutes = 0;
+        let learningOutcomes = [];
+        let outcomeMinutes = {};
+        let outcomeActivities = {};
+        function calculateTime() {
+            const courseName = document.getElementById("courseName").value.trim();
+            const creditHours = parseFloat(document.getElementById("creditHours").value);
+            const courseLength = parseFloat(document.getElementById("courseLength").value);
+            learningOutcomes = document.getElementById("learningOutcomes").value.trim().split('\n').filter(outcome => outcome.trim() !== '');
+            if (!courseName || isNaN(creditHours) || isNaN(courseLength) || learningOutcomes.length === 0) {
+                document.getElementById("result").innerHTML = "<p class='error'>Please enter valid values for all fields.</p>";
+                document.getElementById("result").classList.remove("hidden");
+                return;
+            }
+            // Constants for calculation
+            const facultyLedHoursPerCredit = 12.5;
+            totalFacultyLedMinutes = creditHours * facultyLedHoursPerCredit * 60;
+            // Display results
+            document.getElementById("result").innerHTML = `
+                <h2>Calculation Results for ${courseName}</h2>
+                <p><strong>Total Faculty-Led Instruction Time:</strong> ${totalFacultyLedMinutes} minutes</p>
+                <p><strong>Number of Learning Outcomes:</strong> ${learningOutcomes.length}</p>
+            `;
+            document.getElementById("result").classList.remove("hidden");
+            // Proceed to outcome mapping
+            showOutcomeMapping();
+        }
+        function showOutcomeMapping() {
+            let mappingHTML = `
+                <h2>Map Instructional Minutes to Learning Outcomes</h2>
+                <p>Total available minutes: ${totalFacultyLedMinutes}</p>
+                <form id="outcomeMappingForm">
+            `;
+            learningOutcomes.forEach((outcome, index) => {
+                mappingHTML += `
+                    <label for="outcome${index}">Minutes for "${outcome}":</label>
+                    <input type="number" id="outcome${index}" name="outcome${index}" min="0" max="${totalFacultyLedMinutes}" required>
+                `;
+            });
+            mappingHTML += `
+                <button type="button" onclick="processOutcomeMapping()">Submit Mapping</button>
+                </form>
+            `;
+            document.getElementById("outcomeMapping").innerHTML = mappingHTML;
+            document.getElementById("outcomeMapping").classList.remove("hidden");
+        }
+        function processOutcomeMapping() {
+            let totalMappedMinutes = 0;
+            learningOutcomes.forEach((outcome, index) => {
+                const minutes = parseInt(document.getElementById(`outcome${index}`).value);
+                outcomeMinutes[outcome] = minutes;
+                totalMappedMinutes += minutes;
+            });
+            if (totalMappedMinutes !== totalFacultyLedMinutes) {
+                alert(`Total mapped minutes (${totalMappedMinutes}) must equal total available minutes (${totalFacultyLedMinutes})`);
+                return;
+            }
+            showActivityMapping();
+        }
+        function showActivityMapping() {
+            let mappingHTML = `
+                <h2>Map Activities, Assignments, and Assessments to Learning Outcomes</h2>
+                <form id="activityMappingForm">
+            `;
+            learningOutcomes.forEach((outcome, index) => {
+                mappingHTML += `
+                    <h3>${outcome} (${outcomeMinutes[outcome]} minutes)</h3>
+                    <label for="activities${index}">Active Learning Activities:</label>
+                    <textarea id="activities${index}" name="activities${index}" rows="3" required></textarea>
+                    <label for="assignments${index}">Assignments:</label>
+                    <textarea id="assignments${index}" name="assignments${index}" rows="3" required></textarea>
+                    <label for="assessments${index}">Assessments:</label>
+                    <textarea id="assessments${index}" name="assessments${index}" rows="3" required></textarea>
+                `;
+            });
+            mappingHTML += `
+                <button type="button" onclick="processActivityMapping()">Generate Final Report</button>
+                </form>
+            `;
+            document.getElementById("activityMapping").innerHTML = mappingHTML;
+            document.getElementById("activityMapping").classList.remove("hidden");
+        }
+        function processActivityMapping() {
+            learningOutcomes.forEach((outcome, index) => {
+                outcomeActivities[outcome] = {
+                    activities: document.getElementById(`activities${index}`).value,
+                    assignments: document.getElementById(`assignments${index}`).value,
+                    assessments: document.getElementById(`assessments${index}`).value
+                };
+            });
+            generateFinalReport();
+        }
+        function generateFinalReport() {
+            let reportHTML = `
+                <h2>Final Report and Recommendations</h2>
+            `;
+            learningOutcomes.forEach((outcome) => {
+                reportHTML += `
+                    <h3>${outcome}</h3>
+                    <p><strong>Instructional Time:</strong> ${outcomeMinutes[outcome]} minutes</p>
+                    <p><strong>Active Learning Activities:</strong> ${outcomeActivities[outcome].activities}</p>
+                    <p><strong>Assignments:</strong> ${outcomeActivities[outcome].assignments}</p>
+                    <p><strong>Assessments:</strong> ${outcomeActivities[outcome].assessments}</p>
+                `;
+                // Generate recommendations
+                reportHTML += `<h4>Recommendations:</h4><ul>`;
+                if (outcomeMinutes[outcome] < 100) {
+                    reportHTML += `<li>Consider allocating more time to this learning outcome to ensure adequate coverage.</li>`;
+                }
+                if (outcomeActivities[outcome].activities.length < 50) {
+                    reportHTML += `<li>Expand on the active learning activities to enhance student engagement.</li>`;
+                }
+                if (outcomeActivities[outcome].assignments.length < 50) {
+                    reportHTML += `<li>Develop more comprehensive assignments to reinforce this learning outcome.</li>`;
+                }
+                if (outcomeActivities[outcome].assessments.length < 50) {
+                    reportHTML += `<li>Consider adding more diverse assessment methods to evaluate student learning for this outcome.</li>`;
+                }
+                reportHTML += `
+                    <li>Ensure that the activities, assignments, and assessments directly align with and support this learning outcome.</li>
+                    <li>Reflect on how these components work together to promote student learning and achievement of the outcome.</li>
+                </ul>`;
+            });
+            reportHTML += `
+                <h3>Overall Recommendations:</h3>
+                <ul>
+                    <li>Review the balance of time allocation across learning outcomes to ensure appropriate emphasis on each.</li>
+                    <li>Consider the variety and effectiveness of active learning strategies used across all outcomes.</li>
+                    <li>Ensure a mix of formative and summative assessments to gauge student progress throughout the course.</li>
+                    <li>Reflect on how well the planned activities and assessments align with the course's overall goals and objectives.</li>
+                    <li>Consider seeking peer feedback or conducting a curriculum mapping exercise to further refine the alignment between outcomes, activities, and assessments.</li>
+                </ul>
+            `;
+            document.getElementById("finalReport").innerHTML = reportHTML;
+            document.getElementById("finalReport").classList.remove("hidden");
+        }
+    </script>
+</body>
+</html>
+Version 2 of 3
